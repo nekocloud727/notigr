@@ -1,42 +1,40 @@
 const { Telegraf } = require('telegraf');
 const express = require('express');
+
+// ====== CONFIG ======
 const BOT_TOKEN = "8789804595:AAG3SXRyHWwYMcbA9d86YuXEmzrbEx2YYVI";
 const GROUP_ID = "-1003718219553";
+
+// ====== CHECK ======
 if (!BOT_TOKEN || !GROUP_ID) {
     console.error('❌ Thiếu BOT_TOKEN hoặc GROUP_ID');
     process.exit(1);
 }
 
-
 const bot = new Telegraf(BOT_TOKEN);
+const app = express();
 
-// ================= RANDOM =================
-
-// Random user dạng 7 số + *****
+// ====== RANDOM ======
 const randomUser = () => {
     const prefix = Math.floor(1000000 + Math.random() * 9000000);
     return `${prefix}*****`;
 };
 
-// Random tiền nạp
 const getRandomDeposit = () => {
-    const amounts = [50000, 100000, 150000, 200000, 250000, 300000];
-    return amounts[Math.floor(Math.random() * amounts.length)];
+    const arr = [50000, 80000, 100000, 150000, 200000, 500000];
+    return arr[Math.floor(Math.random() * arr.length)];
 };
 
-// Random tiền rút
 const getRandomWithdraw = () => {
-    const amounts = [50000, 100000, 200000];
-    return amounts[Math.floor(Math.random() * amounts.length)];
+    const arr = [50000, 100000, 200000];
+    return arr[Math.floor(Math.random() * arr.length)];
 };
 
-// Format tiền VNĐ
 const formatMoney = (num) => {
     return new Intl.NumberFormat('vi-VN').format(num);
 };
 
-// ================= SEND MESSAGE =================
-
+// ====== SEND FAKE ======
 const sendFakeMessage = async () => {
     try {
         const isWithdraw = Math.random() > 0.5;
@@ -52,26 +50,21 @@ const sendFakeMessage = async () => {
             text = `💰 ${user} NẠP TIỀN THÀNH CÔNG - ${formatMoney(amount)}đ`;
         }
 
-        console.log('📤 Đang gửi:', text);
+        console.log('📤 Gửi:', text);
 
-        const res = await bot.telegram.sendMessage(GROUP_ID, text);
+        await bot.telegram.sendMessage(GROUP_ID, text);
 
-        console.log('✅ Gửi thành công. Message ID:', res.message_id);
-
-    } catch (error) {
-        console.error('❌ Lỗi gửi message:', error.response?.description || error.message);
+    } catch (err) {
+        console.error('❌ Lỗi:', err.response?.description || err.message);
     }
 };
 
-// ================= LOOP =================
+// ====== LOOP ======
+const startLoop = () => {
+    console.log('🔁 Loop bắt đầu');
 
-const startRandomLoop = () => {
-    console.log('🔁 Bắt đầu vòng lặp...');
-
-    const loop = async () => {
-        const delay = Math.floor(Math.random() * 20000) + 10000; // 10s → 30s
-
-        console.log(`⏳ Chờ ${delay / 1000}s`);
+    const loop = () => {
+        const delay = Math.floor(Math.random() * 20000) + 10000;
 
         setTimeout(async () => {
             await sendFakeMessage();
@@ -82,47 +75,36 @@ const startRandomLoop = () => {
     loop();
 };
 
-// ================= START =================
+// ====== EXPRESS ======
+app.get('/', (req, res) => {
+    res.send('Bot đang chạy ✅');
+});
 
+app.get('/cron', (req, res) => {
+    console.log('Cron chạy:', new Date().toLocaleString());
+    res.json({ ok: true });
+});
+
+// ====== LISTEN (QUAN TRỌNG) ======
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+    console.log(`🌐 Server chạy port ${PORT}`);
+});
+
+// ====== START BOT ======
 (async () => {
     try {
         await bot.launch();
-        console.log('🤖 Bot đã khởi động thành công');
+        console.log('🤖 Bot chạy OK');
 
-        startRandomLoop();
+        startLoop();
 
     } catch (err) {
-        console.error('❌ Lỗi khởi động bot:', err.message);
+        console.error('❌ Lỗi bot:', err.message);
     }
 })();
 
-// ================= STOP =================
-
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.get('/cron', async (req, res) => {
-    try {
-        console.log(`Cron đã chạy lúc: ${new Date().toLocaleString()}`);
-        return res.status(200).json({
-            status: "ok",
-            message: "Cron job executed"
-        });
-    } catch (err) {
-        console.error("Lỗi cron:", err);
-        return res.status(500).json({
-            status: "error"
-        });
-    }
-});
-
-process.once('SIGINT', () => {
-    console.log('🛑 Dừng bot SIGINT');
-    bot.stop('SIGINT');
-});
-
-process.once('SIGTERM', () => {
-    console.log('🛑 Dừng bot SIGTERM');
-    bot.stop('SIGTERM');
-});
+// ====== STOP ======
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
